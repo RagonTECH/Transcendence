@@ -1,16 +1,17 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
     <title>Document</title>
 </head>
 <body>
     <div class="container">
         <div class="user-card">
             <div class="user-image">
-                <img src="assets/images/user1.jpg" alt="kullanıcı resmi">
+                <img src="{% static 'assets/images/user1.jpg' %}" alt="kullanıcı resmi">
             </div>
             <div class="user-info">
                 <p>Nick: Rago</p>
@@ -20,8 +21,8 @@
             </div>
         </div>
         <div class="buttons">
-            <button class="btn-white" onclick="navigateTo('assets/html/Game')">Game</button>
-            <button class="btn-white" onclick="navigateTo('pages/home/home')">Log out</button>
+            <button class="btn-white" onclick="navigateTo('assets/Game')">Game</button>
+            <button class="btn-white" onclick="navigateTo('home')">Log out</button>
         </div>
 
         <div class="chat-btn" onclick="toggleChatBoxes('chat-box')">CHAT</div>
@@ -45,6 +46,5 @@
 
     </div>
     
-    <script src="assets/js/script.js"></script>
+    <script src="{% static 'assets/js/script.js' defer %}"></script>
 </body>
-</html>

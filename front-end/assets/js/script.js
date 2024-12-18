@@ -1,38 +1,98 @@
+window.addEventListener('DOMContentLoaded', (event) => {
+    const initialPage = window.location.pathname.split('/')[1] || 'home';
+    navigateTo(initialPage);
+});
+
 function navigateTo(page) {
     const content = document.getElementById('content');
+    console.log(content); // Elementi kontrol için log ekleyelim
 
-    // Eski içeriği fade-out yap
-    content.classList.add('fade-out');
+    if (!content) {
+        console.error('ID "content" olan element bulunamadı.');
+        return;
+    }
 
-    // Fade-out tamamlandıktan sonra çalışacak bir dinleyici ekle
-    content.addEventListener('animationend', function handleFadeOut() {
-        content.removeEventListener('animationend', handleFadeOut); // Dinleyiciyi kaldır
+    // Yeni içeriği yükle
+    fetch(`/${page}`)
+        .then(response => {
+            console.log('Gelen Yanıt Durumu:', response.status); // Yanıt durumunu kontrol et
+            if (!response.ok) throw new Error(`Sayfa bulunamadı: ${response.status}`);
+            return response.text();
+        })
+        .then(html => {
+            console.log(`Yeni içerik yüklendi: ${page}`); // Kontrol için
+            content.innerHTML = html;
 
-        // Yeni içeriği yükle
-        fetch(`${page}.html`)
-            .then(response => {
-                if (!response.ok) throw new Error('Sayfa bulunamadı');
-                return response.text();
-            })
-            .then(html => {
-                // İçeriği güncelle
-                content.innerHTML = html;
+            // URL'yi güncelle
+            const newUrl = `/${page}`;
+            window.history.pushState({ page }, '', newUrl);
+        })
+        .catch(error => {
+            console.error('Fetch hatası:', error);
+            content.innerHTML = `<p class="text-danger">Hata: ${error.message}</p>`;
+        });
+}
 
-                // Yeni içeriği fade-in yap
-                content.classList.remove('fade-out');
-                content.classList.add('fade-in');
-            })
-            .catch(error => {
-                content.innerHTML = `<p class="text-danger">Hata: ${error.message}</p>`;
-            });
+window.addEventListener('popstate', (event) => {
+    const page = event.state?.page || 'home';
+    navigateTo(page);
+});
+
+
+
+function submitForm(event) {
+    event.preventDefault();  // Sayfa yenilemesini engelle
+
+    const form = new FormData(event.target);  // Form verilerini al
+
+    fetch('/register', {
+        method: 'POST',
+        body: form,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  // AJAX isteği olduğunu belirtiyoruz
+        },
+    })
+    .then(response => response.json())  // Yanıtı JSON formatında al
+    .then(data => {
+        if (data.success) {
+            // Başarılı olursa kullanıcıyı login sayfasına yönlendir
+            navigateTo('login');
+        } else {
+            // Hata varsa, hata mesajını göster
+            document.getElementById('message').innerHTML = data.message;
+        }
+    })
+    .catch(error => {
+        document.getElementById('message').innerHTML = 'Bir hata oluştu: ' + error.message;
     });
 }
 
-// Sayfa yüklendiğinde varsayılan sayfayı yükle
-document.addEventListener('DOMContentLoaded', () => {
-    navigateTo('pages/home/home');
-});
+function submitFormOne(event) {
+    event.preventDefault();  // Sayfa yenilemesini engelle
 
+    const form = new FormData(event.target);  // Form verilerini al
+
+    fetch('/login', {
+        method: 'POST',
+        body: form,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  // AJAX isteği olduğunu belirtiyoruz
+        },
+    })
+    .then(response => response.json())  // Yanıtı JSON formatında al
+    .then(data => {
+        if (data.success) {
+            // Başarılı olursa kullanıcıyı login sayfasına yönlendir
+            navigateTo('user');
+        } else {
+            // Hata varsa, hata mesajını göster
+            document.getElementById('message').innerHTML = data.message;
+        }
+    })
+    .catch(error => {
+        document.getElementById('message').innerHTML = 'Bir hata oluştu: ' + error.message;
+    });
+}
 
 
 
@@ -104,4 +164,3 @@ function sendMessage(event) {
 
     return false; // Form gönderimini tamamen engelle
 }
-

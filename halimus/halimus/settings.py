@@ -12,16 +12,13 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import environ
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -49,9 +46,7 @@ ROOT_URLCONF = 'halimus.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            '/usr/share/nginx/static',
-        ],
+        'DIRS': ['/usr/share/nginx/static'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -70,7 +65,9 @@ WSGI_APPLICATION = 'halimus.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+LOGIN_REDIRECT_URL = '/home'
 
+APPEND_SLASH = False
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / 'docker' / '.env')
@@ -137,6 +134,7 @@ if DEBUG:
     STATICFILES_DIRS = [
         '/usr/share/nginx/static/',  # Front-end statik dosyalarının yolu
     ]
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
