@@ -9,5 +9,4 @@ urlpatterns = [
     path('register', views.register_user, name='register'),
     path('login', views.login_page, name='login'), 
     path('user', views.user_page, name='user'),
-    re_path(r'^(?:.*)/?$', TemplateView.as_view(template_name='index.html')),
 ]

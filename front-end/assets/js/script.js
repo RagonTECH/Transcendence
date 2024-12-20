@@ -3,40 +3,50 @@ window.addEventListener('DOMContentLoaded', (event) => {
     navigateTo(initialPage);
 });
 
-function navigateTo(page) {
-    const content = document.getElementById('content');
-    console.log(content); // Elementi kontrol için log ekleyelim
+// window.onbeforeunload = function(event) {
+//     event.preventDefault();
+//   };
 
-    if (!content) {
-        console.error('ID "content" olan element bulunamadı.');
-        return;
-    }
+  function navigateTo(page) {
+    const content = document.getElementById('content');
+    console.log(content);
 
     // Yeni içeriği yükle
     fetch(`/${page}`)
         .then(response => {
-            console.log('Gelen Yanıt Durumu:', response.status); // Yanıt durumunu kontrol et
+            console.log('Gelen Yanıt Durumu:', response.status);
             if (!response.ok) throw new Error(`Sayfa bulunamadı: ${response.status}`);
             return response.text();
         })
         .then(html => {
-            console.log(`Yeni içerik yüklendi: ${page}`); // Kontrol için
+            console.log(`Yeni içerik yüklendi: ${page}`);
             content.innerHTML = html;
+
+            // Sayfa yüklenince JavaScript dosyalarını yeniden yükle
+            const scripts = content.querySelectorAll('script');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                newScript.src = script.src;
+                newScript.onload = () => console.log(`Script yüklendi: ${script.src}`);
+                document.body.appendChild(newScript);
+            });
 
             // URL'yi güncelle
             const newUrl = `/${page}`;
             window.history.pushState({ page }, '', newUrl);
         })
         .catch(error => {
-            console.error('Fetch hatası:', error);
+            console.error('Fetch hatası:', JSON.stringify(error));
             content.innerHTML = `<p class="text-danger">Hata: ${error.message}</p>`;
         });
 }
+
 
 window.addEventListener('popstate', (event) => {
     const page = event.state?.page || 'home';
     navigateTo(page);
 });
+
 
 
 
@@ -81,6 +91,7 @@ function submitFormOne(event) {
     })
     .then(response => response.json())  // Yanıtı JSON formatında al
     .then(data => {
+        console.log(JSON.stringify(data));
         if (data.success) {
             // Başarılı olursa kullanıcıyı login sayfasına yönlendir
             navigateTo('user');

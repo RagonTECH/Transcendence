@@ -1,14 +1,17 @@
+<!-- base.html -->
 {% load static %}
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
-    <title>Halimus</title>
+    <title>{% block title %}Halimus{% endblock %}</title>
 </head>
 <body>
-    <div id="content"></div>
+        {% block content %}
+            <div id="content"></div>
+        {% endblock %}
     <script src="{% static 'assets/js/script.js' defer %}"></script>
 </body>
 </html>

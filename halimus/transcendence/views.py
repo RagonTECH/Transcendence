@@ -6,12 +6,13 @@ from django.contrib.auth import login
 from .forms import UserForm
 from .forms import LoginForm 
 from .models import User
+import logging
 
-def spa(request): 
-    return render(request, 'index.html')
+logger = logging.getLogger(__name__)
 
 def index_page(request):
-    return render(request, 'pages/index.html')
+    logger.debug(request)
+    return render(request, 'pages/base.html')
 
 def home_page(request):
     return render(request, 'pages/home.html')
