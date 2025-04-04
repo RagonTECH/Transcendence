@@ -1,0 +1,40 @@
+{% extends 'pages/base.html' %}
+
+{% block title %}Pong{% endblock %}
+
+{% block content %}
+<div>
+
+    <h1 class="pong-h1">PONG</h1>
+    
+    <div style="display: flex; justify-content: space-between; padding: 10px 20px;">
+        <div id="left-player">Left Player: Waiting...</div>
+        <div id="right-player">Right Player: Waiting...</div>
+    </div>
+
+    <div>
+        <div id="status">Waiting for players...</div>
+        <div id="gameArea">
+            <div id="centerLine"></div>
+            <div id="ball"></div>
+            <div id="player1" class="paddle"></div>
+            <div id="player2" class="paddle"></div>
+        </div>
+    
+        <label class="switch">
+            <input type="checkbox" id="colorSwitch" onchange="changeColors()">
+            <span class="toggle"></span>
+        </label>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <button class="btn-glitch-fill" onclick="leaveTournament()"><span class="text-decoration">\\ leave //</span></button>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <button id="nextGameBtn" class="btn-glitch-fill" onclick="handleNextGame()" disabled><span class="text-decoration">\\ Next Game //</span></button>
+    </div>
+    
+
+</div>    
+
+
+{% endblock %}

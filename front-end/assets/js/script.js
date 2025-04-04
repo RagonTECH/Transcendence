@@ -1,177 +1,1116 @@
-window.addEventListener('DOMContentLoaded', (event) => {
-    const initialPage = window.location.pathname.split('/')[1] || 'home';
-    navigateTo(initialPage);
+let socket = null;
+let pageHistory = [];
+
+window.addEventListener('DOMContentLoaded', () => {
+    const initialPage = window.location.pathname.substring(1) || 'home';
+    navigateTo(initialPage, false);
 });
 
-// window.onbeforeunload = function(event) {
-//     event.preventDefault();
-//   };
-
-  function navigateTo(page) {
+function navigateTo(page, addToHistory = true) {
     const content = document.getElementById('content');
-    console.log(content);
 
-    // Yeni içeriği yükle
     fetch(`/${page}`)
         .then(response => {
-            console.log('Gelen Yanıt Durumu:', response.status);
-            if (!response.ok) throw new Error(`Sayfa bulunamadı: ${response.status}`);
+            if (!response.ok) throw new Error(`Page not found: ${response.status}`);
             return response.text();
         })
         .then(html => {
-            console.log(`Yeni içerik yüklendi: ${page}`);
             content.innerHTML = html;
+            updateButtonVisibility(page);
+            document.title = getPageTitle(page);
 
-            // Sayfa yüklenince JavaScript dosyalarını yeniden yükle
-            const scripts = content.querySelectorAll('script');
-            scripts.forEach(script => {
-                const newScript = document.createElement('script');
-                newScript.src = script.src;
-                newScript.onload = () => console.log(`Script yüklendi: ${script.src}`);
-                document.body.appendChild(newScript);
-            });
+            if (addToHistory) {
+                window.history.pushState({ page }, "", `/${page}`);
+            } else {
+                window.history.replaceState({ page }, "", `/${page}`);
+            }
 
-            // URL'yi güncelle
-            const newUrl = `/${page}`;
-            window.history.pushState({ page }, '', newUrl);
+            if (page === 'home') {
+                startAnimations(page); // Animasyonları başlat
+            }
+            if (window.profilePageInit) {
+                window.profilePageInit();
+            }
+
+            setTimeout(() => {
+                if (page === 'game/pong') {
+                    const gameMode = sessionStorage.getItem("game_mode") || "1v1";
+                    const alias = sessionStorage.getItem("player_alias");
+                    if (gameMode === "local") { // Local modu başlat
+                        startLocalPongGame();
+                    } else {
+                        isLocalMode = false;
+                        initiateWebSocketConnection(gameMode, alias);
+                    }
+                    console.log("isLocalMode:", isLocalMode);
+                } else if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
+                }
+            }, 100);
         })
         .catch(error => {
-            console.error('Fetch hatası:', JSON.stringify(error));
             content.innerHTML = `<p class="text-danger">Hata: ${error.message}</p>`;
         });
 }
 
-
 window.addEventListener('popstate', (event) => {
     const page = event.state?.page || 'home';
-    navigateTo(page);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+     }
+    navigateTo(page, false);  // Geçmişe tekrar ekleme yapma
 });
 
+window.addEventListener('beforeunload', () => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+    }
+});
 
+function getPageTitle(page) {
+    const titles = {
+        "home": "Home",
+        "about": "About",
+        "game/home": "Game",
+        "game/pong": "Pong",
+        "register": "Register",
+        "login": "Login",
+        "activate_user": "Activate User",
+        "verify": "Verify",
+        "user": "User",
+        "logout": "Logout",
+        "notverified": "Not verified",
+        "user/activate2fa": "User 2fa",
+        "user/update": "Update",
+        "user/update_user": "Update user",
+        "user/delete": "Delete",
+        "anonymize_account": "Anonymize Account",
+        "gdpr": "GDPR",
+        "game/tournament": "Tournament",
+    };
+    const profileMatch = page.match(/^game\/profile\/(\d+)$/);
+    if (profileMatch) {
+        const userId = profileMatch[1];
+        return `Profile - ${userId}`;
+    }
+    return titles[page] || "Unknown Page";
+}
 
 
 function submitForm(event) {
-    event.preventDefault();  // Sayfa yenilemesini engelle
+    event.preventDefault(); 
 
-    const form = new FormData(event.target);  // Form verilerini al
+    const form = new FormData(event.target);  
 
     fetch('/register', {
         method: 'POST',
         body: form,
         headers: {
-            'X-Requested-With': 'XMLHttpRequest',  // AJAX isteği olduğunu belirtiyoruz
+            'X-Requested-With': 'XMLHttpRequest', 
         },
     })
-    .then(response => response.json())  // Yanıtı JSON formatında al
+    .then(response => response.json()) 
     .then(data => {
+        const messageElement = document.getElementById('message');
         if (data.success) {
-            // Başarılı olursa kullanıcıyı login sayfasına yönlendir
+
             navigateTo('login');
         } else {
-            // Hata varsa, hata mesajını göster
-            document.getElementById('message').innerHTML = data.message;
+            let errorMessage = '';
+            for (const [key, value] of Object.entries(data.errors)) {
+                errorMessage += `<p class="text-danger">${value}</p>`;
+            }
+            messageElement.innerHTML = errorMessage;
         }
     })
     .catch(error => {
-        document.getElementById('message').innerHTML = 'Bir hata oluştu: ' + error.message;
+        document.getElementById('message').innerHTML = 'An error occurred: ' + error.message;
     });
 }
 
 function submitFormOne(event) {
-    event.preventDefault();  // Sayfa yenilemesini engelle
+    event.preventDefault();
 
-    const form = new FormData(event.target);  // Form verilerini al
+    const form = new FormData(event.target); 
 
     fetch('/login', {
         method: 'POST',
         body: form,
         headers: {
-            'X-Requested-With': 'XMLHttpRequest',  // AJAX isteği olduğunu belirtiyoruz
+            'X-Requested-With': 'XMLHttpRequest', 
         },
     })
-    .then(response => response.json())  // Yanıtı JSON formatında al
+    .then(response => response.json())  
     .then(data => {
+        const messageElement = document.getElementById('message');
         console.log(JSON.stringify(data));
         if (data.success) {
-            // Başarılı olursa kullanıcıyı login sayfasına yönlendir
-            navigateTo('user');
+            console.log(data.message)
+            if (data.message.includes("2FA verification required. Please check your email.")) {
+                navigateTo('verify');
+            } else {
+                localStorage.setItem('access_token', data.access_token);
+                
+                navigateTo('user');
+            }
         } else {
-            // Hata varsa, hata mesajını göster
-            document.getElementById('message').innerHTML = data.message;
+            let errorMessage = '';
+            if (data.errors) {
+                for (const [key, value] of Object.entries(data.errors)) {
+                    errorMessage += `<p class="text-danger">${value}</p>`;
+                }
+            } else {
+                errorMessage = `<p class="text-danger">${data.message}</p>`;
+            }
+            messageElement.innerHTML = errorMessage;
         }
     })
     .catch(error => {
-        document.getElementById('message').innerHTML = 'Bir hata oluştu: ' + error.message;
+        document.getElementById('message').innerHTML = `<p class="text-danger">An error occurred: ${error.message}</p>`;
+    });
+}
+function logoutUser() {
+    fetch('/logout', {
+        method: 'POST',  
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  
+        },
+    })
+    .then(response => response.json())  
+    .then(data => {
+        const messageElement = document.getElementById('message');
+        messageElement.innerHTML = `<p class="text-success">${data.message}</p>`;
+
+        setTimeout(() => {
+            navigateTo('login');
+        }, 500);
+    })
+    .catch(error => {
+        document.getElementById('message').innerHTML = `<p class="text-danger">An error occurred: ${error.message}</p>`;
+    });
+}
+
+function handleNextGame() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: "next_game" }));
+    }
+    navigateTo('game/pong'); 
+}
+
+function leaveTournament() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: "leave_tournament" }));
+    }
+    navigateTo('user');  // Oyuncuyu ana sayfaya yönlendir
+}
+
+function start1v1Game() {
+    fetch("/game/home/check-active-game/")  // Sunucudan mevcut oyun durumunu kontrol et
+        .then(response => response.json())
+        .then(data => {
+            const messageBox = document.getElementById("game-message"); // Mesaj göstermek için bir div seç
+            if (data.in_game) {
+                messageBox.innerHTML = "You're already in a game.";
+                messageBox.style.color = "red";  // Mesajı kırmızı yap (isteğe bağlı)
+                messageBox.style.fontWeight = "bold";  // Kullanıcıya mesaj göster
+            } else {
+                sessionStorage.setItem("game_mode", "1v1");
+                navigateTo("game/pong");  // Oyunda değilse yönlendirme yap
+            }
+        })
+        .catch(error => {
+            console.error("An error occurred while checking the game state:", error);
+        });
+}
+
+function startLocalGame() {
+    sessionStorage.setItem("game_mode", "local");  // Local modda oynandığını sakla
+    navigateTo("game/pong"); // Oyunun oynandığı sayfaya git
+}
+
+
+const GAME_WIDTH = 1000;
+const GAME_HEIGHT = 580;
+const BALL_SIZE = 13;
+const BALL_RADIUS = BALL_SIZE / 2;
+const PADDLE_WIDTH = 5;
+const PADDLE_HEIGHT = 60;
+const PADDLE_SPEED = 18;
+const WINNING_SCORE = 2;
+
+let isLocalMode = false;
+let gameActive = false;
+
+// **Local Pong Değişkenleri**
+let scoresL, ballL, playersL;
+
+// **Local Pong Başlatma**
+function startLocalPongGame() {
+    isLocalMode = true;
+    gameActive = true;
+    scoresL = { player1: 0, player2: 0 };
+    ballL = { x: 500, y: 290, vx: 1.0, vy: 1.0 };
+    playersL = { player1: { y: 260 }, player2: { y: 260 } };
+
+    document.getElementById("left-player").innerText = "Left Player: WASD - Player 1";
+    document.getElementById("right-player").innerText = "Right Player: arrow keys - Player 2";
+    document.getElementById("status").innerText = "Game Started!";
+
+    // Local event dinleyicileri ekle
+    document.addEventListener("keydown", handleLocalKeydown);
+    startLocalGameLoop();
+}
+
+// **Local Pong Oyun Döngüsü**
+function startLocalGameLoop() {
+    if (!isLocalMode) return;
+
+    function gameLoop() {
+        if (!gameActive) return;
+
+        moveBall();
+        updateGameView();
+        setTimeout(gameLoop, 50);
+    }
+
+    gameLoop();
+}
+
+// **Local Pong Top Hareketi**
+function moveBall() {
+    if (!gameActive || !isLocalMode) return;
+
+    ballL.x += ballL.vx * 10;
+    ballL.y += ballL.vy * 10;
+
+    if (ballL.y - BALL_RADIUS <= 0 || ballL.y + BALL_RADIUS >= GAME_HEIGHT) {
+        ballL.vy = -ballL.vy;
+    }
+
+    // **Sol paddle çarpışma kontrolü**
+    if (
+        ballL.x - BALL_RADIUS <= PADDLE_WIDTH &&
+        ballL.y >= playersL.player1.y &&
+        ballL.y <= playersL.player1.y + PADDLE_HEIGHT
+    ) {
+        ballL.vx = -ballL.vx;
+        ballL.x = PADDLE_WIDTH + BALL_RADIUS;
+    }
+    // **Sağ paddle çarpışma kontrolü**
+    else if (
+        ballL.x + BALL_RADIUS >= GAME_WIDTH - PADDLE_WIDTH &&
+        ballL.y >= playersL.player2.y &&
+        ballL.y <= playersL.player2.y + PADDLE_HEIGHT
+    ) {
+        ballL.vx = -ballL.vx;
+        ballL.x = GAME_WIDTH - PADDLE_WIDTH - BALL_RADIUS;
+    }
+
+    // **Gol kontrolü**
+    if (ballL.x - BALL_RADIUS <= 0) {
+        scoresL.player2++;
+        updateScore();
+        checkGameEnd();
+        resetBall(1);
+    } else if (ballL.x + BALL_RADIUS >= GAME_WIDTH) {
+        scoresL.player1++;
+        updateScore();
+        checkGameEnd();
+        resetBall(-1);
+    }
+}
+
+// **Topu başlangıç konumuna döndür**
+function resetBall(directionL) {
+    ballL = { 
+        x: 500.0, 
+        y: 290.0, 
+        vx: directionL * 1.0, 
+        vy: (Math.random() > 0.5 ? 1.0 : -1.0) // %50 yukarı, %50 aşağı gitmesi için
+    };
+}
+
+// **Paddle hareket ettirme**
+function movePaddle(player, directionL) {
+    if (!gameActive) return;
+
+    if (player === "player1") {
+        if (directionL === "up") {
+            playersL.player1.y = Math.max(0, playersL.player1.y - PADDLE_SPEED);
+        } else if (directionL === "down") {
+            playersL.player1.y = Math.min(GAME_HEIGHT - PADDLE_HEIGHT, playersL.player1.y + PADDLE_SPEED);
+        }
+    } else if (player === "player2") {
+        if (directionL === "up") {
+            playersL.player2.y = Math.max(0, playersL.player2.y - PADDLE_SPEED);
+        } else if (directionL === "down") {
+            playersL.player2.y = Math.min(GAME_HEIGHT - PADDLE_HEIGHT, playersL.player2.y + PADDLE_SPEED);
+        }
+    }
+}
+
+// **Skoru güncelle**
+function updateScore() {
+    document.getElementById("status").innerText = `Score: ${scoresL.player1} - ${scoresL.player2}`;
+}
+
+// **Oyunu bitirme kontrolü**
+function checkGameEnd() {
+    if (scoresL.player1 >= WINNING_SCORE) {
+        endGame("Player 1 Winner!");
+        document.getElementById("nextGameBtn").disabled = false;
+    } else if (scoresL.player2 >= WINNING_SCORE) {
+        endGame("Player 2 Winner!");
+        document.getElementById("nextGameBtn").disabled = false;
+    }
+}
+
+// **Oyun bittiğinde mesaj göster**
+function endGame(message) {
+    gameActive = false;
+    document.getElementById("status").innerText = message;
+    document.removeEventListener("keydown", handleLocalKeydown); 
+}
+
+// **HTML içindeki paddle ve top konumlarını güncelle**
+function updateGameView() {
+        document.getElementById("ball").style.left = `${ballL.x}px`;
+        document.getElementById("ball").style.top = `${ballL.y}px`;
+        document.getElementById("player1").style.top = `${playersL.player1.y}px`;
+        document.getElementById("player2").style.top = `${playersL.player2.y}px`;
+}
+// **Local Pong Paddle Hareket Ettirme**
+function handleLocalKeydown(event) {
+    if (!isLocalMode) return;
+
+    if (event.key === "w") movePaddle("player1", "up");
+    if (event.key === "s") movePaddle("player1", "down");
+    if (event.key === "ArrowUp") movePaddle("player2", "up");
+    if (event.key === "ArrowDown") movePaddle("player2", "down");
+}
+
+
+
+
+function joinTournament(event) {
+    event.preventDefault();
+    const alias = document.getElementById("player-alias").value;
+    const messageElement = document.getElementById("alias-message");
+    
+    if (!alias) {
+        alert("Please fill in all fields!");
+        return;
+    }
+    
+    console.log("Checking active game...");
+    
+    fetch("/game/home/check-active-game/")
+        .then(response => {
+            console.log("Active game response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Active game response data:", data);
+            if (data.in_game) {
+                messageElement.innerHTML = `<p style="color: red;">Already in a game!</p>`;
+                return null;  // ❗️ `null` dönerek zinciri kır
+            }
+
+            console.log("Checking alias availability...");
+            return fetch("/game/tournament/check-alias/?alias=" + encodeURIComponent(alias));
+        })
+        .then(response => {
+            if (!response) return; // ⬅️ Eğer `null` dönerse, devam etme!
+
+            console.log("Alias check response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            if (!data) return; // ⬅️ Eğer önceki adımda durduysak, devam etme!
+            console.log("Alias check response data:", data);
+
+            if (data.exists) {
+                messageElement.innerHTML = `<p style="color: red;">This alias is already taken</p>`;
+            } else {
+                messageElement.innerHTML = "";
+                sessionStorage.setItem("game_mode", "tournament");
+                sessionStorage.setItem("player_alias", alias);
+                navigateTo("game/pong");
+            }
+        })
+        .catch(error => {
+            console.error("Error in joinTournament:", error);
+            alert("An error occurred. Please check the console for details.");
+        });
+}
+
+
+function getCsrfToken() {
+    const csrfElement = document.querySelector('meta[name="csrf-token"]') 
+                      || document.querySelector('input[name="csrfmiddlewaretoken"]');
+    return csrfElement ? csrfElement.getAttribute('content') || csrfElement.getAttribute('value') : null;
+}
+
+
+function initiateWebSocketConnection(gameMode, alias) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close(); 
+    }
+
+    let wsUrl = 'wss://' + window.location.host + '/ws/pong/';
+
+    if (gameMode === "tournament") {
+        wsUrl += `?tournament_mode=true&alias=${encodeURIComponent(alias)}`;
+    } else {
+        wsUrl += `?tournament_mode=false&alias=${encodeURIComponent(alias)}`;
+    }
+
+
+    socket = new WebSocket(wsUrl);
+
+    const statusElement = document.getElementById('status');
+
+    socket.onopen = () => {
+        console.log('WebSocket connection opened successfully.');
+        statusElement.innerHTML = 'Connecting...';
+        socket.send(JSON.stringify({
+            'action': 'getAlias',
+            'alias': alias,
+
+        }))
+    };
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "enable_next_game_button") {
+            document.getElementById("nextGameBtn").disabled = false;
+        }
+        if (data.type === 'game_message') {
+            statusElement.innerHTML = data.message;
+            if (data.scores) {
+                statusElement.innerHTML += `<br>Score: ${data.scores.player1} - ${data.scores.player2}`;
+            }
+        } else if (data.type === 'game_state') {
+            if (!data.state.players || !data.state.players.player1 || !data.state.players.player2) {
+                return;
+            }
+            ball.style.left = data.state.ball.x + 'px';
+            ball.style.top = data.state.ball.y + 'px';
+            player1.style.top = data.state.players.player1.y + 'px';
+            player2.style.top = data.state.players.player2.y + 'px';
+        }
+        else if (data.type === "player_info") {
+            document.getElementById("left-player").innerText = `Left Player: ${data.left}`;
+            document.getElementById("right-player").innerText = `Right Player: ${data.right}`;
+        }
+        
+    };
+
+    socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+
+    socket.onclose = (event) => {
+        console.log('WebSocket connection closed:', event);
+    };
+ // Hareket intervali
+    addWebSocketEventListeners();
+  
+}
+
+let movementInterval = null;
+
+function handleWebSocketKeydown(e) {
+    if (isLocalMode || e.repeat || movementInterval) return;
+
+    let direction = null;
+    if (e.key === "w" || e.key === "ArrowUp") direction = "up";
+    else if (e.key === "s" || e.key === "ArrowDown") direction = "down";
+
+    if (direction) {
+        socket.send(JSON.stringify({ type: "move", direction }));
+        movementInterval = setInterval(() => {
+            socket.send(JSON.stringify({ type: "move", direction }));
+        }, 20);
+    }
+}
+
+// WebSocket için keyup event handler
+function handleWebSocketKeyup(e) {
+    if (isLocalMode) return;
+
+    if (["w", "ArrowUp", "s", "ArrowDown"].includes(e.key)) {
+        socket.send(JSON.stringify({ type: "move", direction: "stop" }));
+        clearInterval(movementInterval);
+        movementInterval = null;
+    }
+}
+
+function addWebSocketEventListeners() {
+    document.addEventListener("keydown", handleWebSocketKeydown);
+    document.addEventListener("keyup", handleWebSocketKeyup);
+}
+
+// Event listener'ları kaldıran fonksiyon
+function removeWebSocketEventListeners() {
+    document.removeEventListener("keydown", handleWebSocketKeydown);
+    document.removeEventListener("keyup", handleWebSocketKeyup);
+}
+
+
+function activate2FA() {
+    const csrfToken = getCsrfToken();
+    const toggle = document.getElementById('toggle2FA');
+    const isEnabled = toggle.checked;  // Açık/Kapalı durumunu kontrol et
+
+    fetch('/user/activate2fa', {  
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ enable_2fa: isEnabled })  // Sunucuya durumu gönder
+    })
+    .then(response => response.json())
+    .then(data => {
+    })
+    .catch(error => {
+        console.error('Hata oluştu:', error);
+        toggle.checked = !isEnabled; // Hata olursa geri al
     });
 }
 
 
 
-function toggleChatBoxes(targetBoxClass) {
-    const chatBox = document.querySelector('.chat-box');
-    const friendsBox = document.querySelector('.friends-box');
-    const container = document.querySelector('.container');
-
-    // Hedef kutu
-    const currentBox = document.querySelector(`.${targetBoxClass}`);
-
-    // Hedef kutu açılıyor ya da kapanıyor
-    if (!currentBox.classList.contains('open')) {
-        currentBox.classList.add('open');
-        currentBox.classList.remove('close');
+function deleteAccount() {
+    const inputText = document.getElementById('inputText').value.trim().toLowerCase();
+    const responseMessage = document.getElementById('responseMessage');
+    
+    if (inputText === "delete my account") {
+        fetch('/user/delete', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ txt: inputText }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log(JSON.stringify(data));
+                const messageElement = document.getElementById('message');
+                const message = data.success ? data.message : data.error_message;
+                messageElement.className = data.success ? "text-success" : "text-danger";
+                messageElement.innerHTML = `<p>${message}</p>`;
+                setTimeout(() => {
+                    navigateTo('register');
+                }, 1000);
+            } else {
+                responseMessage.innerHTML = `<span style="color: red;">${data.message}</span>`;
+            }
+        })
+        .catch(error => {
+            responseMessage.innerHTML = `<span style="color: red;">Something went wrong. Please try again.</span>`;
+        });
     } else {
-        currentBox.classList.remove('open');
-        currentBox.classList.add('close');
-    }
-
-    // Her iki kutunun durumunu kontrol et
-    const isChatOpen = chatBox.classList.contains('open');
-    const isFriendsOpen = friendsBox.classList.contains('open');
-
-    // Container'ın pozisyonunu belirle
-    if (isChatOpen && isFriendsOpen) {
-        container.classList.add('shift-both');
-        container.classList.remove('shift-chat', 'shift-friends');
-    } else if (isChatOpen) {
-        container.classList.add('shift-chat');
-        container.classList.remove('shift-both', 'shift-friends');
-    } else if (isFriendsOpen) {
-        container.classList.add('shift-friends');
-        container.classList.remove('shift-both', 'shift-chat');
-    } else {
-        // Kutuların hiçbiri açık değilse varsayılan duruma dön
-        container.classList.remove('shift-both', 'shift-chat', 'shift-friends');
+        responseMessage.innerHTML = "<span style='color: red;'>Incorrect input. Please type 'delete my account'.</span>";
     }
 }
 
 
 
-
-
-function sendMessage(event) {
-    // Formun varsayılan davranışını engelle (sayfa yenilenmesini önler)
-    event.preventDefault();
-
-    // Mesaj kutusundan girilen değeri al
-    var message = document.getElementById("messageInput").value;
-
-    // Eğer mesaj boş değilse, ekleme işlemi yap
-    if (message.trim() !== "") {
-        // Yeni bir div oluşturun ve mesajı ekleyin
-        var messageDiv = document.createElement("div");
-        messageDiv.classList.add("message"); // Mesaj kutusu sınıfını ekle
-        messageDiv.textContent = message;
-
-        // Mesajı #messages alanına ekleyin
-        document.getElementById("messages").appendChild(messageDiv);
-
-        // Mesaj kutusunu temizleyin
-        document.getElementById("messageInput").value = "";
-
-        // Mesajlar görünümünü en son mesaja kaydır
-        var messagesContainer = document.getElementById("messages");
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+function changeColors() {
+    console.log("Button clicked");
+    const switchElement = document.getElementById('colorSwitch'); 
+    if (switchElement.checked) {
+        console.log("Switch checked");
+        document.getElementById('gameArea').style.backgroundColor = getRandomColor();
+        document.getElementById('ball').style.backgroundColor = getRandomColor();
+        document.getElementById('player1').style.backgroundColor = getRandomColor();
+        document.getElementById('player2').style.backgroundColor = getRandomColor();
+    } else {
+        console.log("Switch unchecked");
+        document.getElementById('gameArea').style.backgroundColor = '#000';
+        document.getElementById('ball').style.backgroundColor = '#fff';
+        document.getElementById('player1').style.backgroundColor = '#fff';
+        document.getElementById('player2').style.backgroundColor = '#fff';
     }
+}
 
-    return false; // Form gönderimini tamamen engelle
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
+
+
+
+function submitUpdatePasswordForm(event) {
+    event.preventDefault(); 
+
+    const form = new FormData(event.target);  
+
+    fetch('/user/update_user', {
+        method: 'PUT',
+        body: form,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  
+        },
+    })
+    .then(response => response.json())  
+    .then(data => {
+        console.log(JSON.stringify(data));
+        const messageElement = document.getElementById('message');
+        const message = data.success ? data.message : data.error_message;
+        messageElement.className = data.success ? "text-success" : "text-danger";
+        messageElement.innerHTML = `<p>${message}</p>`;
+
+
+
+        if (message.includes("Password updated successfully, logging out.")) {
+            setTimeout(() => {
+                navigateTo('login');
+            }, 1000);
+        }
+
+    })
+    .catch(error => {
+        document.getElementById('message').innerHTML = `<p class="text-danger">An error occurred: ${error.message}</p>`;
+    });
+}
+
+
+
+function submitAnonymizeForm(event) {
+    event.preventDefault();  
+    const csrfToken = getCsrfToken();
+    const form = new FormData(event.target); 
+
+    fetch('/anonymize_account', {
+        method: 'PUT',
+        body: form,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken,  
+
+        },
+    })
+    .then(response => response.json())  
+    .then(data => {
+        console.log(JSON.stringify(data));
+        if (data.success) {
+            navigateTo('user');
+        } else {
+            document.getElementById('message').innerHTML = data.message;
+        }
+    })
+    .catch(error => {
+        document.getElementById('message').innerHTML = 'An error occurred: ' + error.message;
+    });
+}
+
+
+function toggleFriendsPanel() {
+    const panel = document.getElementById('friendsPanel');
+    const overlay = document.getElementById('overlay');
+
+    if (panel.classList.contains('active')) {
+        // Paneli kapat
+        panel.style.animation = 'fadeOut 0.3s';
+        overlay.classList.remove('active'); 
+        setTimeout(() => {
+            panel.classList.remove('active');
+            panel.style.display = 'none';
+            overlay.style.display = 'none';
+        }, 300);
+    } else {
+        // Paneli aç
+        fetch('/friends/')
+            .then(response => response.text())
+            .then(html => {
+                panel.querySelector('.modal-content').innerHTML = html;
+                panel.classList.add('active');
+                panel.style.animation = 'fadeIn 0.3s';
+                panel.style.display = 'block';
+                overlay.classList.add('active');
+                overlay.style.display = 'block';
+            });
+    }
+}
+
+
+
+function goBack() {
+    if (pageHistory.length > 1) {
+        pageHistory.pop();
+        const previousPage = pageHistory[pageHistory.length - 1]; 
+
+        navigateTo(previousPage);
+    } else {
+        navigateTo('home')
+    }
+}
+
+function submitFriendsForm(event) {
+    event.preventDefault();  
+    const csrfToken = getCsrfToken();
+    const form = event.target; 
+    const url = form.getAttribute('action'); 
+    const formData = new FormData(form);  
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest', 
+            'X-CSRFToken': csrfToken,  
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        const messageElement = document.getElementById('message');
+        if (data.success) {
+            setTimeout(() => {
+                navigateTo('user');
+            }, 500); 
+            messageElement.innerHTML = `<p class="text-success">${data.message}</p>`;
+        } else {
+            messageElement.innerHTML = `<p class="text-danger">${data.message}</p>`;
+        }
+    })
+    .catch(error => {
+        console.error('Hata:', error);
+        document.getElementById('message').innerHTML = `<p class="text-danger">An error occurred: ${error.message}</p>`;
+    });
+}
+
+
+function handleFriendRequest(event, url) {
+    event.preventDefault();  
+    const csrfToken = getCsrfToken();
+
+    fetch(url, {
+        method: 'GET',  
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',  
+            'X-CSRFToken': csrfToken,  
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();  
+    })
+    .then(data => {
+        const messageElement = document.getElementById('message');
+        if (data.success) {
+            messageElement.innerHTML = `<p class="text-success">${data.message}</p>`;
+            navigateTo('user');
+        } else {
+            messageElement.innerHTML = `<p class="text-danger">${data.message}</p>`;
+        }
+    })
+    .catch(error => {
+        console.error('Hata:', error);
+        document.getElementById('message').innerHTML = `<p class="text-danger">An error occurred: ${error.message}</p>`;
+    });
+}
+
+
+function updateButtonVisibility(currentPage) {
+    const gdprButton = document.querySelector(".GDPR");
+    const aboutButton = document.querySelector(".GDPR2");
+    const friendsButton = document.querySelector(".GDPR3");
+
+    if (currentPage === "gdpr" || currentPage === "about") {
+        gdprButton.style.display = "none"; 
+        aboutButton.style.display = "none"; 
+    } else {
+        gdprButton.style.display = "block"; 
+        aboutButton.style.display = "block";
+    }
+}
+
+function startAnimations(page) {
+    const transandece = document.getElementById('transandece');
+    const contentt = document.getElementById('contentt');
+
+    if (page === "home"){
+
+        setTimeout(() => {
+            transandece.style.transform = 'translate(-45%, -850%)';
+        }, 250); 
+
+        setTimeout(() => {
+            contentt.style.opacity = '1';
+        }, 600); // 3 saniye sonra içeriği görünür yap
+    }
+}
+
+// Sayfa yüklendiğinde animasyonları başlat
+window.onload = startAnimations;
+
+
+
+
+// Pasta grafik çizim fonksiyonu
+function drawWinLossChart() {
+    const canvas = document.getElementById('winLossChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const winPercentage = parseFloat(canvas.dataset.winPercent);
+    const lossPercentage = parseFloat(canvas.dataset.lossPercent);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Modern colors with transparency
+    const winColor = 'rgba(40, 167, 69, 0.8)';
+    const lossColor = 'rgba(220, 53, 69, 0.8)';
+    const bgColor = 'rgba(49, 49, 49, 0.3)';
+    
+    // Dimensions
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) / 2 - 10;
+    const innerRadius = radius * 0.5;
+    
+    // Draw win segment with 3D effect
+    if (winPercentage > 0) {
+        const winAngle = (winPercentage / 100) * 2 * Math.PI;
+        
+        // Shadow effect
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, -Math.PI/2, -Math.PI/2 + winAngle, false);
+        ctx.arc(centerX, centerY, innerRadius, -Math.PI/2 + winAngle, -Math.PI/2, true);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(40, 167, 69, 0.2)';
+        ctx.fill();
+        
+        // Main segment
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, -Math.PI/2, -Math.PI/2 + winAngle, false);
+        ctx.arc(centerX, centerY, innerRadius, -Math.PI/2 + winAngle, -Math.PI/2, true);
+        ctx.closePath();
+        
+        const winGradient = ctx.createRadialGradient(
+            centerX, centerY, innerRadius,
+            centerX, centerY, radius
+        );
+        winGradient.addColorStop(0, 'rgba(40, 167, 69, 0.9)');
+        winGradient.addColorStop(1, 'rgba(40, 167, 69, 0.6)');
+        ctx.fillStyle = winGradient;
+        ctx.fill();
+        
+        // Highlight
+        ctx.beginPath();
+        ctx.arc(centerX + Math.cos(-Math.PI/2 + winAngle/2) * (radius + innerRadius)/2,
+                centerY + Math.sin(-Math.PI/2 + winAngle/2) * (radius + innerRadius)/2,
+                (radius - innerRadius)/3, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fill();
+    }
+    
+    // Draw loss segment with 3D effect
+    if (lossPercentage > 0) {
+        const lossAngle = (lossPercentage / 100) * 2 * Math.PI;
+        const startAngle = -Math.PI/2 + (winPercentage / 100) * 2 * Math.PI;
+        
+        // Shadow effect
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + lossAngle, false);
+        ctx.arc(centerX, centerY, innerRadius, startAngle + lossAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(220, 53, 69, 0.2)';
+        ctx.fill();
+        
+        // Main segment
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + lossAngle, false);
+        ctx.arc(centerX, centerY, innerRadius, startAngle + lossAngle, startAngle, true);
+        ctx.closePath();
+        
+        const lossGradient = ctx.createRadialGradient(
+            centerX, centerY, innerRadius,
+            centerX, centerY, radius
+        );
+        lossGradient.addColorStop(0, 'rgba(220, 53, 69, 0.9)');
+        lossGradient.addColorStop(1, 'rgba(220, 53, 69, 0.6)');
+        ctx.fillStyle = lossGradient;
+        ctx.fill();
+    }
+    
+    // Center hole with glass effect
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
+    const centerGradient = ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, innerRadius
+    );
+    centerGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+    centerGradient.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+    ctx.fillStyle = centerGradient;
+    ctx.fill();
+    
+    // Outer border
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+// Gol ortalaması bar chart fonksiyonu
+function drawGoalsChart() {
+    const canvas = document.getElementById('goalsChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const avgGoals = parseFloat(canvas.dataset.avgGoals);
+    const maxGoals = 11;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Modern grid lines (horizontal)
+    for (let i = 0; i <= maxGoals; i++) {
+        const y = canvas.height - 30 - (i * (canvas.height - 60) / maxGoals);
+        
+        // Grid line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, y);
+        ctx.lineTo(canvas.width - 20, y);
+        ctx.stroke();
+        
+        // Y axis labels
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '12px "Arial", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(i, 35, y);
+    }
+    
+    // X axis label
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Goals', canvas.width / 2, canvas.height - 10);
+    
+    // Bar dimensions
+    const barWidth = 140;
+    const maxBarHeight = canvas.height - 60;
+    const barHeight = (avgGoals / maxGoals) * maxBarHeight;
+    const barX = (canvas.width - barWidth) / 2;
+    const barY = canvas.height - 30 - barHeight;
+    
+    // Bar shadow
+    ctx.fillStyle = 'rgba(79, 172, 254, 0.2)';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barWidth, barHeight, [20, 20, 0, 0]);
+    ctx.fill();
+    
+    // Glass bar with gradient
+    const gradient = ctx.createLinearGradient(0, barY, 0, barY + barHeight);
+    gradient.addColorStop(0, 'rgba(79, 172, 254, 0.8)');
+    gradient.addColorStop(1, 'rgba(79, 172, 254, 0.8)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barWidth, barHeight, [20, 20, 0, 0]);
+    ctx.fill();
+    
+    // Bar highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barWidth * 0.3, barHeight, [20, 0, 0, 0]);
+    ctx.fill();
+    
+    // Animation
+    let progress = 0;
+    function animate() {
+        progress = Math.min(progress + 0.03, 1);
+        const currentHeight = barHeight * progress;
+        const currentY = canvas.height - 30 - currentHeight;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Redraw grid
+        for (let i = 0; i <= maxGoals; i++) {
+            const y = canvas.height - 30 - (i * (canvas.height - 60) / maxGoals);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.beginPath();
+            ctx.moveTo(40, y);
+            ctx.lineTo(canvas.width - 20, y);
+            ctx.stroke();
+            ctx.fillText(i, 35, y);
+        }
+        
+        // X axis label
+        ctx.fillText('Avarage score ', canvas.width / 2, canvas.height - 10);
+        
+        // Animated bar
+        ctx.fillStyle = 'rgba(79, 172, 254, 0.2)';
+        ctx.beginPath();
+        ctx.roundRect(barX, currentY, barWidth, currentHeight, [20, 20, 0, 0]);
+        ctx.fill();
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.roundRect(barX, currentY, barWidth, currentHeight, [20, 20, 0, 0]);
+        ctx.fill();
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.roundRect(barX, currentY, barWidth * 0.3, currentHeight, [20, 0, 0, 0]);
+        ctx.fill();
+        
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+    
+    animate();
+}
+
+// Tüm grafikleri çiz
+function drawAllCharts() {
+    drawWinLossChart();
+    drawGoalsChart();
+}
+
+// SPA uyumluluk için global fonksiyon
+window.profilePageInit = drawAllCharts;
+
+// Sayfa yüklendiğinde çiz
+document.addEventListener('DOMContentLoaded', drawAllCharts);
+
+// MutationObserver ile container değişikliklerini izle
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList') {
+            drawAllCharts();
+        }
+    });
+});
+
+const container = document.querySelector('.profile-wrapper');
+if (container) {
+    observer.observe(container, {
+        childList: true,
+        subtree: true
+    });
 }

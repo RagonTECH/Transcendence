@@ -2,6 +2,7 @@ services:
   django:
     container_name: django
     build:
+      context: .
       dockerfile: app/back-end/Dockerfile
     restart: always
     volumes:
@@ -13,9 +14,10 @@ services:
       - ./.env
     environment:
       - DJANGO_DEBUG=True
-
     depends_on:
-      - postgre
+      postgre:
+        condition: service_healthy
+  
   postgre:
     container_name: postgre
     image: postgres:latest
@@ -23,6 +25,19 @@ services:
     - "5432:5432"
     env_file:
       - ./.env
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DATABASE_USERNAME}", "-d", "${DATABASE}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 2s 
+
+  redis:
+    container_name: redis
+    image: redis
+    command: ["redis-server", "--port", "6380"]
+    ports:
+      - "6380:6380"
 
   frontend:
     build:
@@ -34,10 +49,7 @@ services:
     depends_on:
       - django
     volumes:
-      - ../front-end/:/usr/share/nginx/static  # statik dosyaları yönlendiriyoruz
+      - ../front-end/:/usr/share/nginx/static
 
 volumes:
   postgres_data:
-
-
-

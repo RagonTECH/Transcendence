@@ -1,0 +1,23 @@
+{% extends 'pages/base.html' %}
+
+{% block title %}Delete{% endblock %}
+
+{% block content %}
+
+
+    <h1 style="text-align: center; color: #ffffff; font-size: xx-large;">Permanently Delete Your Account</h1>
+    <h3 style="text-align: center; color: #ff0000; font-size:larger; margin-bottom: 20px;">Warning! All your data will be deleted and you will not be able to access it again!</h3>
+    <div class="form-group">
+        <input type="text" id="inputText" class="input-field" placeholder="Type 'delete my account' here" required />
+    </div>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <button class="btn-glitch-fill" id="deleteButton" onclick="deleteAccount()">\\ delete //</button>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <button class="btn-glitch-fill" onclick="navigateTo('user')"><span class="text-decoration">\\ cancel //</span></button>
+    </div>
+    <div class="message">
+        <div id ="message"></div>
+    </div>
+
+{% endblock %}

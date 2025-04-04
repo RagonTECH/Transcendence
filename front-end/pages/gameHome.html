@@ -1,0 +1,37 @@
+{% extends 'pages/base.html' %}
+
+{% block title %}Game Home{% endblock %}
+
+{% block content %}
+
+    <h2 class="blinking-title">GAMES</h2>
+    <div class="buttoon-div">
+
+        <div onclick="start1v1Game()">
+            <a class="btn-glitch-fill">
+                <span class="text-decoration">==PONG 1v1</span><span class="text-decoration">=></span>
+            </a>
+        </div>
+
+        <div onclick="startLocalGame()">
+            <a class="btn-glitch-fill">
+                <span class="text-decoration">==PONG Local 1v1</span><span class="text-decoration">=></span>
+            </a>
+        </div>
+        
+        <div onclick="navigateTo('game/tournament')">
+            <a class="btn-glitch-fill">
+                <span class="text">==PONG Tournament=></span><span class="text-decoration"> </span>
+            </a>  
+        </div>
+        
+        <div onclick="navigateTo('user')">
+            <a class="btn-glitch-fill">
+                <span class="text-decoration"> // </span><span class="text"> Home </span
+                    ><span class="text-decoration"> // </span>
+                </a>  
+            </div>
+        <div id="game-message" style="margin-top: 10px;"></div>  
+        </div>
+
+{% endblock %}

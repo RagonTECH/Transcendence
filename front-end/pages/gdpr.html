@@ -1,0 +1,61 @@
+{% extends 'pages/base.html' %}
+
+{% block title %}GDPR{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<div class="container py-5 d-flex justify-content-center" style="overflow: hidden;">
+    <div class="card shadow-lg text-white bg-transparent" style="color: rgb(255, 255, 255);">
+        <div class="card-header bg-primary text-white text-center">
+            <h3>Data Privacy Policy</h3>
+        </div>
+        <div class="card-body lh-base" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+            <p><strong>Introduction</strong><br> We take the protection of your personal data seriously while using our website. This Privacy Policy has been prepared to clearly explain how your personal data is collected, used, processed, and stored. We collect, use, and keep your personal data safe only for the purposes stated.</p>
+            <p><strong>Collected Personal Data</strong><br> When you register on our website or use our services, we may collect the following personal data:
+                <ul>
+                    <li>Email Address: Collected to access your account and communicate with you.</li>
+                    <li>Username (Nick): Used to personalize the website content and interact with you.</li>
+                    <li>Password: Stored securely for account security purposes.</li>
+                    <li>ID: Required to identify and manage your user account.</li>
+                </ul>
+            </p>
+            <p><strong>Methods of Data Collection</strong><br> Your personal data is collected through the following methods on our website:
+                <ul>
+                    <li><strong>Registration Form:</strong> You can register by providing your email address, username (nick), and password.</li>
+                    <li><strong>Cookies:</strong> Our website may use cookies to enhance your user experience. Cookies are small data files stored in your browser and are only used to improve your user experience.</li>
+                </ul>
+            </p>
+            <p><strong>Use of Data</strong><br> The collected personal data may be used for the following purposes:
+                <ul>
+                    <li>Creation and management of your account.</li>
+                    <li>Providing user support and services you request.</li>
+                    <li>Security measures on the website and encrypted access.</li>
+                    <li>Sending notifications regarding important updates and information about the website.</li>
+                    <li>Complying with our legal obligations.</li>
+                </ul>
+            </p>
+            <p><strong>Data Sharing</strong><br> Your personal data will not be shared with third parties in any way. Your personal data may only be shared with your consent or due to legal obligations.</p>
+            <p><strong>Data Security</strong><br> The security of your personal data is of utmost importance to us. Our website takes industry-standard security measures to securely store your user data. Your data is stored encrypted and only authorized personnel have access.</p>
+            <p><strong>Data Retention Period</strong><br> Your personal data will be stored only for as long as necessary and will then be securely deleted. If you wish to delete your user account, your account and personal data will be removed from all systems.</p>
+            <p><strong>User Rights</strong><br> As a user, you have the following rights:
+                <ul>
+                    <li><strong>Right of Access:</strong> You have the right to know what personal data we hold about you.</li>
+                    <li><strong>Right of Rectification:</strong> You have the right to correct any inaccurate or incomplete personal data.</li>
+                    <li><strong>Right of Erasure:</strong> You can request the deletion of your account and personal data.</li>
+                    <li><strong>Right to Object:</strong> You have the right to object to the processing of your personal data.</li>
+                    <li><strong>Right to Data Portability:</strong> You have the right to transfer your personal data to another system.</li>
+                    <li><strong>Right to Withdraw Consent:</strong> You can withdraw your consent to the processing of your personal data at any time.</li>
+                </ul>
+            </p>
+            <p><strong>Changes</strong><br> This privacy policy may be updated from time to time. Changes to the policy will be effective from the date they are published on this page. Therefore, it is important to regularly check the updated version of the policy.</p>
+            <p><strong>Contact</strong><br> If you have any questions regarding this Privacy Policy, you can contact us.</p>
+        </div>
+        <div class="d-flex justify-content-center mt-3">
+            <button class="btn-glitch-fill" style="max-width: 215px; max-height: 65px;" onclick="goBack()">
+                <span class="text-decoration">\\ back //</span>
+            </button>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

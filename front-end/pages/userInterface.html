@@ -1,39 +1,63 @@
-<!-- userInterface.html -->
 {% extends 'pages/base.html' %}
 
-{% block title %}Kullanıcı Arayüzü{% endblock %}
+{% block title %}User Interface{% endblock %}
 
 {% block content %}
 <div class="container">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <div class="user-card">
+        <div class="user-image">
+            <img src="{{ user.avatar.url }}" alt="Avatar">
+        </div>
         <div class="user-info">
-            <p><strong>Adı:</strong> <span id="username"></span></p>
-            <p><strong>Soyadı:</strong> <span id="last_name"></span></p>
-            <p><strong>E-posta:</strong> <span id="email"></span></p>
+            <p><strong>Name:</strong> {{ username }}<span id="username"></span></p>
+            <p><strong>Email:</strong> {{ email }}<span id="email"></span></p>
         </div>
     </div>
-    <div class="buttons">
-        <button class="btn-white" onclick="navigateTo('assets/Game')">Game</button>
-        <button class="btn-white" onclick="navigateTo('home')">Log out</button>
+
+    <div id="overlay" class="overlay"></div>
+
+    <div id="friendsPanel" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="toggleFriendsPanel()">×</span>
+        </div>
     </div>
 
-    <div class="chat-btn" onclick="toggleChatBoxes('chat-box')">CHAT</div>
-    <div class="chat-box">
-        <h1 class="h-1">SOHBET</h1>
-        <div id="messages"></div>
-        <form class="d-flex " onsubmit="return sendMessage(event)">
-            <input type="text" id="messageInput" class="form-control" placeholder="Mesaj yazın..." aria-label="Mesaj yazın">
-            <button type="submit" class="btn btn-primary" id="sendButton">Gönder</button>
-        </form>
-    </div>
-    <div class="friends-btn" onclick="toggleChatBoxes('friends-box')">FRIENDS</div>
-    <div class="friends-box">
-        <h1>ARKADAŞLAR</h1>
-        <div class="friends-body">
-            <div class="friends-card">
-                <!-- Friends list goes here -->
+
+    <div class="buttons">
+        <div class="btn-glitch-fill" onclick="navigateTo('game/home')">
+            <span class="text-decoration">// GAME //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="navigateTo('user/update')">
+            <span class="text-decoration">// edit //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="logoutUser()">
+            <span class="text-decoration">// logout //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="navigateTo('anonymize_account')">
+            <span class="text-decoration">// anonymize //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="navigateTo('user/delete')">
+            <span class="text-decoration">// delete account //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="navigateTo('game/profile/{{user.id}}')">
+            <span class="text-decoration">// profile //</span>
+        </div>
+        <div class="btn-glitch-fill" onclick="toggleFriendsPanel()">
+            <span class="text-decoration">// Friends //</span>
+        </div>
+        <div class="switch-holder btn-glitch-fill">
+            <div class="switch-label">
+                <i class="fa fa-toggle2FA-b"></i><span class="text-decoration">ACTIVATE 2FA</span>
+            </div>
+            <div class="switch-toggle">
+                <input type="checkbox" id="toggle2FA" onclick="activate2FA()" {% if request.user.is_2fa_active %}checked{% endif %}>
+                <label for="toggle2FA"></label>
             </div>
         </div>
     </div>
+</div>
+<div class="message">
+    <div id ="message"></div>
 </div>
 {% endblock %}
